@@ -3,4 +3,10 @@ project(knight_swap)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(knight_swap src/main.cpp)
+add_executable(knight_swap src/main.cpp
+        src/InputData.h
+        src/Types.h
+        src/Solver.h
+        src/InstanceInfo.h
+        src/BoardState.h
+)
