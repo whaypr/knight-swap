@@ -1,0 +1,67 @@
+Solution length: 12
+Found after 1031 iterations
+-------- MOVE 0 --------
+BB..
+BB..
+..WW
+..WW
+-------- MOVE 1 --------
+.B..
+BBB.
+..WW
+..WW
+-------- MOVE 2 --------
+.B..
+BBB.
+.WWW
+..W.
+-------- MOVE 3 --------
+.B..
+BB..
+.WWW
+..WB
+-------- MOVE 4 --------
+WB..
+BB..
+..WW
+..WB
+-------- MOVE 5 --------
+W...
+BB.B
+..WW
+..WB
+-------- MOVE 6 --------
+WW..
+BB.B
+...W
+..WB
+-------- MOVE 7 --------
+WW..
+.B.B
+..BW
+..WB
+-------- MOVE 8 --------
+WWW.
+.B.B
+..B.
+..WB
+-------- MOVE 9 --------
+WWW.
+...B
+..BB
+..WB
+-------- MOVE 10 --------
+WWW.
+.W.B
+..BB
+...B
+-------- MOVE 11 --------
+WWW.
+.W..
+..BB
+..BB
+-------- MOVE 12 --------
+WW..
+WW..
+..BB
+..BB

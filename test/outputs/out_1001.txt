@@ -1,0 +1,4 @@
+Solution length: 0
+Found after 1 iterations
+-------- MOVE 0 --------
+
