@@ -62,9 +62,9 @@ private:
         if (boardState.whitesLeft + boardState.blacksLeft == 0)
             return boardState.solutionCandidate;
 
-        // preparation for nextPos calls
 
-        vector<NextCall> nextMoves;
+        vector<NextMoveInfo> nextMovesInfo;
+
         bool areWhitesOnTurn = ((step % 2 == 1) && (boardState.whitesLeft > 0)) || (boardState.blacksLeft == 0);
         const vector<position> & knights = areWhitesOnTurn ? boardState.whites : boardState.blacks;
         const map<position, int> & knightDistances = areWhitesOnTurn ? instanceInfo.minDistancesWhites : instanceInfo.minDistancesBlacks;
@@ -81,35 +81,41 @@ private:
                     continue;
                 }
 
-                nextMoves.emplace_back(nextLowerBound, i, current, next);
+                nextMovesInfo.emplace_back(nextLowerBound, i, current, next);
             }
         }
 
         // call viable options
-        sort(nextMoves.begin(), nextMoves.end(), nextCallComparator);
-        for (const auto & item : nextMoves) {
+
+        sort(nextMovesInfo.begin(), nextMovesInfo.end(), nextCallComparator);
+
+        for (const auto & item : nextMovesInfo) {
+            int i = item.knightIndex;
             position current = item.currentPos;
             position next = item.nextPos;
-            int i = item.knightIndex;
             int nextLowerBound = item.nextLowerBound;
 
             BoardState newBoardState(boardState);
-            if (instanceInfo.squareType[current] == WHITE && !areWhitesOnTurn)
-                newBoardState.blacksLeft++;
-            else if (instanceInfo.squareType[current] == BLACK && areWhitesOnTurn)
-                newBoardState.whitesLeft++;
-            if (instanceInfo.squareType[next] == WHITE && !areWhitesOnTurn)
-                newBoardState.blacksLeft--;
-            else if (instanceInfo.squareType[next] == BLACK && areWhitesOnTurn)
-                newBoardState.whitesLeft--;
 
-            newBoardState.lowerBound = nextLowerBound;
+            if (areWhitesOnTurn) {
+                newBoardState.whites[i] = next;
+
+                if (instanceInfo.squareType[current] == BLACK)
+                    newBoardState.whitesLeft++;
+                if (instanceInfo.squareType[next] == BLACK)
+                    newBoardState.whitesLeft--;
+            } else {
+                newBoardState.blacks[i] = next;
+
+                if (instanceInfo.squareType[current] == WHITE)
+                    newBoardState.blacksLeft++;
+                if (instanceInfo.squareType[next] == WHITE)
+                    newBoardState.blacksLeft--;
+            }
+
             newBoardState.boardOccupation[current] = false;
             newBoardState.boardOccupation[next] = true;
-            if (areWhitesOnTurn)
-                newBoardState.whites[i] = next;
-            else
-                newBoardState.blacks[i] = next;
+            newBoardState.lowerBound = nextLowerBound;
             newBoardState.solutionCandidate.emplace_back(current, next);
 
             auto res = solveInner(newBoardState, step + 1);
@@ -127,15 +133,15 @@ private:
         return boardState.solution;
     }
 
-    struct NextCall {
-        NextCall(int nextLowerBound, int knightIndex, position currentPos, position nextPos) :
+    struct NextMoveInfo {
+        NextMoveInfo(int nextLowerBound, int knightIndex, position currentPos, position nextPos) :
                 nextLowerBound(nextLowerBound), knightIndex(knightIndex), currentPos(currentPos), nextPos(nextPos) {
         }
 
         int nextLowerBound, knightIndex, currentPos, nextPos;
     };
 
-    static bool nextCallComparator(const NextCall &a, const NextCall &b) {
+    static bool nextCallComparator(const NextMoveInfo &a, const NextMoveInfo &b) {
         return a.nextLowerBound < b.nextLowerBound;
     }
 

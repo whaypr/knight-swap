@@ -17,6 +17,7 @@ public:
             blacksLeft(instanceInfo.nKnightsInParty),
             solutionCandidate(vector<pair<position,position>>()),
             solution(vector<pair<position,position>>()) {
+
         for (position pos = 0; pos < instanceInfo.nSquares; ++pos) {
             SquareType type = instanceInfo.squareType[pos];
             switch (type) {
@@ -38,14 +39,14 @@ public:
         upperBound = getInitUpperBound();
     }
 
+    BoardState(const BoardState & o) = default;
+
     const InstanceInfo & instanceInfo;
     int whitesLeft, blacksLeft;
     vector<position> whites, blacks;
     vector<bool> boardOccupation;
     size_t lowerBound, upperBound;
     vector<pair<position,position>> solutionCandidate, solution;
-
-    BoardState(const BoardState & o) = default;
 
 private:
 
@@ -67,6 +68,7 @@ private:
                 int mostDistantDestPathLen;
                 queue<pair<position, pair<int, int>>> q; // position, traveled so far from that pos, number of destination squares visited
                 q.emplace(pos, make_pair(0, 0));
+
                 while (true) {
                     position current = q.front().first;
                     int length = q.front().second.first;

@@ -28,7 +28,7 @@ public:
     }
 
     const InputData & inputData;
-    map<position,vector<int>> movesForPos;
+    map<position,vector<position>> movesForPos;
     const int nSquares;
     const int nKnightsInParty;
     const vector<SquareType> squareType;
@@ -68,6 +68,7 @@ private:
             visited.insert(pos);
             queue<pair<position, int>> q; // position, traveled so far from that pos
             q.emplace(pos, 0);
+
             while (!q.empty()) {
                 position current = q.front().first;
                 int length = q.front().second;
@@ -96,8 +97,8 @@ private:
         return row * inputData.nCols + col;
     }
 
-    map<position,vector<int>> createMovesForPos() const {
-        map<position,vector<int>> res;
+    map<position,vector<position>> createMovesForPos() const {
+        map<position,vector<position>> res;
 
         vector<pair<int,int>> patterns = {
                 make_pair(-2,-1),
@@ -112,18 +113,18 @@ private:
 
         for (int row = 0; row < inputData.nRows; ++row) {
             for (int col = 0; col < inputData.nCols; ++col) {
-                vector<int> moves;
+                vector<position> jumpDestinations;
 
                 for (const auto& pattern : patterns) {
                     int rowNew = row + pattern.first;
                     int colNew = col + pattern.second;
 
                     if (colNew >= 0 && colNew < inputData.nCols && rowNew >= 0 && rowNew < inputData.nRows) {
-                        moves.emplace_back(flatten(rowNew, colNew));
+                        jumpDestinations.emplace_back(flatten(rowNew, colNew));
                     }
                 }
 
-                res.emplace(flatten(row, col), std::move(moves));
+                res.emplace(flatten(row, col), std::move(jumpDestinations));
             }
         }
 
