@@ -9,16 +9,25 @@
 
 using namespace std;
 
+/**
+ * Used to finding and printing a solution for given problem instance
+ */
 class Solver {
 public:
     explicit Solver(const InstanceInfo & instanceInfo) :
         instanceInfo(instanceInfo) {
     }
 
+    /**
+     * Finds a solution and stores it internally
+     */
     void solve(BoardState & boardState, int step) {
         optimalSolution = solveInner(boardState, step);
     }
 
+    /**
+     * Prints the internally stored solution
+     */
     void printSolution() {
         if (optimalSolution.empty()) {
             cout << "Solution either does not exist or it is trivial (zero moves)!" << endl;
@@ -59,9 +68,11 @@ private:
     vector<pair<position,position>> solveInner(BoardState & boardState, int step) {
         nIterations++;
 
+        // a (possibly not optimal) solution is found
         if (boardState.whitesLeft + boardState.blacksLeft == 0)
             return boardState.solutionCandidate;
 
+        /* prepare information for all viable next moves (recursive calls) */
 
         vector<NextMoveInfo> nextMovesInfo;
 
@@ -85,7 +96,7 @@ private:
             }
         }
 
-        // call viable options
+        /* perform all viable next moves (recursive calls) */
 
         sort(nextMovesInfo.begin(), nextMovesInfo.end(), nextCallComparator);
 
@@ -94,6 +105,8 @@ private:
             position current = item.currentPos;
             position next = item.nextPos;
             int nextLowerBound = item.nextLowerBound;
+
+            /* prepare a board state for the next call */
 
             BoardState newBoardState(boardState);
 
@@ -118,6 +131,8 @@ private:
             newBoardState.lowerBound = nextLowerBound;
             newBoardState.solutionCandidate.emplace_back(current, next);
 
+            /* do the call and update solution if needed */
+
             auto res = solveInner(newBoardState, step + 1);
 
             if (!res.empty() && res.size() < boardState.upperBound) {
@@ -133,6 +148,9 @@ private:
         return boardState.solution;
     }
 
+    /**
+     * Helper structure holding information needed for recursive calls
+     */
     struct NextMoveInfo {
         NextMoveInfo(int nextLowerBound, int knightIndex, position currentPos, position nextPos) :
                 nextLowerBound(nextLowerBound), knightIndex(knightIndex), currentPos(currentPos), nextPos(nextPos) {
@@ -145,6 +163,9 @@ private:
         return a.nextLowerBound < b.nextLowerBound;
     }
 
+    /**
+     * Converts the 1D game board representation back to 2D
+     */
     void printBoard(const vector<char> & board) {
         int i = instanceInfo.inputData.nCols;
         for (const auto & square : board) {

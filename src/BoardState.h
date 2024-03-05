@@ -7,7 +7,7 @@
 using namespace std;
 
 /***
- * Current state of the board in given step
+ * Current state of the game board in given step
  */
 class BoardState {
 public:
@@ -42,14 +42,29 @@ public:
     BoardState(const BoardState & o) = default;
 
     const InstanceInfo & instanceInfo;
+    /**
+     * How many knights of given color are still not in a destination area
+     */
     int whitesLeft, blacksLeft;
+    /**
+     * Positions of knights of given color
+     */
     vector<position> whites, blacks;
+    /**
+     * For each position on the game board, it says whether it is occupied or not
+     */
     vector<bool> boardOccupation;
     size_t lowerBound, upperBound;
+    /**
+     * Vector of pairs where the first item is a starting point and the second item is an ending point of given move
+     */
     vector<pair<position,position>> solutionCandidate, solution;
 
 private:
 
+    /**
+     * A sum of minimal distances to destination areas of all knights
+     */
     int getInitLowerBound() {
         int res = 0;
         for (auto const & w : whites)
@@ -59,14 +74,20 @@ private:
         return res;
     }
 
+    /**
+     * A sum of minimal distances to the most distant squares in destination areas of all knights
+     */
     int getInitUpperBound() {
         int res = 0;
 
+        // For each position, find the shortest path to the most distant square in the destination area for given color using BFS
         for (const auto& opt : {make_pair(whites, BLACK), make_pair(blacks, WHITE)}) {
             for (const int& pos: opt.first) {
-                // find the shortest path (to the most distant destination) using DFS
                 int mostDistantDestPathLen;
-                queue<pair<position, pair<int, int>>> q; // position, traveled so far from that pos, number of destination squares visited
+                // first: position
+                // second.first: number of steps traveled so far from that pos
+                // second.second: number of destination squares visited
+                queue<pair<position, pair<int, int>>> q;
                 q.emplace(pos, make_pair(0, 0));
 
                 while (true) {
