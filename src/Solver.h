@@ -35,7 +35,7 @@ public:
 
                 // calculate steps lower bound
                 size_t nextLowerBound = boardState.lowerBound - knightDistances.find(current)->second + knightDistances.find(next)->second;
-                if (step + nextLowerBound + 1 > boardState.upperBound) {
+                if (step + nextLowerBound + 1 >= boardState.upperBound) {
                     continue;
                 }
 
@@ -72,7 +72,7 @@ public:
 
             auto res = solve(newBoardState, step+1);
 
-            if (!res.empty() && res.size() <= boardState.upperBound) {
+            if (!res.empty() && res.size() < boardState.upperBound) {
                 if (res.size() == boardState.lowerBound) {
                     return res;
                 }

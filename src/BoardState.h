@@ -90,7 +90,7 @@ private:
             }
         }
 
-        return res;
+        return res+1;
     }
 };
 
