@@ -2,6 +2,7 @@
 #define KNIGHT_SWAP_SOLVER_H
 
 #include <utility>
+#include <algorithm>
 #include "Types.h"
 #include "BoardState.h"
 
@@ -20,8 +21,8 @@ public:
 
         // preparation for nextPos calls
 
-        map<int, NextCall> nextMoves;
-        bool areWhitesOnTurn = (step % 2 == 1) && boardState.whitesLeft > 0;
+        vector<NextCall> nextMoves;
+        bool areWhitesOnTurn = ((step % 2 == 1) && (boardState.whitesLeft > 0)) || (boardState.blacksLeft == 0);
         const vector<position> & knights = areWhitesOnTurn ? boardState.whites : boardState.blacks;
         const map<position, int> & knightDistances = areWhitesOnTurn ? instanceInfo.minDistancesWhites : instanceInfo.minDistancesBlacks;
 
@@ -34,30 +35,31 @@ public:
 
                 // calculate steps lower bound
                 size_t nextLowerBound = boardState.lowerBound - knightDistances.find(current)->second + knightDistances.find(next)->second;
-                if (step + nextLowerBound + 1 >= boardState.upperBound) {
+                if (step + nextLowerBound + 1 > boardState.upperBound) {
                     continue;
                 }
 
-                nextMoves.insert({nextLowerBound, NextCall(i, current, next)});
+                nextMoves.emplace_back(nextLowerBound, i, current, next);
             }
         }
 
         // call viable options
+        sort(nextMoves.begin(), nextMoves.end(), nextCallComparator);
         for (const auto & item : nextMoves) {
-            position current = item.second.currentPos;
-            position next = item.second.nextPos;
-            int i = item.second.knightIndex;
-            int nextLowerBound = item.first;
+            position current = item.currentPos;
+            position next = item.nextPos;
+            int i = item.knightIndex;
+            int nextLowerBound = item.nextLowerBound;
 
-            BoardState newBoardState(boardState);
-            if (instanceInfo.squareType[current] == WHITE)
-                newBoardState.whitesLeft++;
-            else if (instanceInfo.squareType[current] == BLACK)
+                 BoardState newBoardState(boardState);
+            if (instanceInfo.squareType[current] == WHITE && !areWhitesOnTurn)
                 newBoardState.blacksLeft++;
-            if (instanceInfo.squareType[next] == WHITE)
-                newBoardState.whitesLeft--;
-            else if (instanceInfo.squareType[next] == BLACK)
+            else if (instanceInfo.squareType[current] == BLACK && areWhitesOnTurn)
+                newBoardState.whitesLeft++;
+            if (instanceInfo.squareType[next] == WHITE && !areWhitesOnTurn)
                 newBoardState.blacksLeft--;
+            else if (instanceInfo.squareType[next] == BLACK && areWhitesOnTurn)
+                newBoardState.whitesLeft--;
 
             newBoardState.lowerBound = nextLowerBound;
             newBoardState.boardOccupation[current] = false;
@@ -70,11 +72,12 @@ public:
 
             auto res = solve(newBoardState, step+1);
 
-            if (!res.empty() && res.size() < boardState.upperBound) {
-                if (res.size() == boardState.lowerBound)
+            if (!res.empty() && res.size() <= boardState.upperBound) {
+                if (res.size() == boardState.lowerBound) {
                     return res;
+                }
 
-                boardState.solutionCandidate = res;
+                //boardState.solutionCandidate = res;
                 boardState.solution = res;
                 boardState.upperBound = res.size();
             }
@@ -87,12 +90,16 @@ private:
     const InstanceInfo & instanceInfo;
 
     struct NextCall {
-        NextCall(int knightIndex, position currentPos, position nextPos) :
-                knightIndex(knightIndex), currentPos(currentPos), nextPos(nextPos) {
+        NextCall(int nextLowerBound, int knightIndex, position currentPos, position nextPos) :
+                nextLowerBound(nextLowerBound), knightIndex(knightIndex), currentPos(currentPos), nextPos(nextPos) {
         }
 
-        int knightIndex, currentPos, nextPos;
+        int nextLowerBound, knightIndex, currentPos, nextPos;
     };
+
+    static bool nextCallComparator(const NextCall &a, const NextCall &b) {
+        return a.nextLowerBound < b.nextLowerBound;
+    }
 };
 
 #endif //KNIGHT_SWAP_SOLVER_H
