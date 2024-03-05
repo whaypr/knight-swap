@@ -5,8 +5,13 @@
 
 using namespace std;
 
-int main() {
-    const InputData inputData("../test/instances/in_0001.txt");
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        cerr << "The input file path must be provided as an argument!" << endl;
+        return 1;
+    }
+
+    const InputData inputData(argv[1]);
     const InstanceInfo instanceInfo(inputData);
     BoardState boardState(instanceInfo);
     Solver solver(instanceInfo);
