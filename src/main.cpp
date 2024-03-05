@@ -10,7 +10,9 @@ int main() {
     const InstanceInfo instanceInfo(inputData);
     BoardState boardState(instanceInfo);
     Solver solver(instanceInfo);
-    auto res = solver.solve(boardState, 0);
+
+    solver.solve(boardState, 0);
+    solver.printSolution();
 
     return 0;
 }
