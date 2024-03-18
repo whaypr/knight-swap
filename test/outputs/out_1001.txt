@@ -1,4 +1,38 @@
-Solution length: 0
-Found after 1 iterations
+Solution length: 8
+Found after 11 iterations
 -------- MOVE 0 --------
-
+..W
+...
+B..
+-------- MOVE 1 --------
+.BW
+...
+...
+-------- MOVE 2 --------
+.B.
+...
+.W.
+-------- MOVE 3 --------
+...
+...
+.WB
+-------- MOVE 4 --------
+W..
+...
+..B
+-------- MOVE 5 --------
+W..
+B..
+...
+-------- MOVE 6 --------
+...
+B.W
+...
+-------- MOVE 7 --------
+..B
+..W
+...
+-------- MOVE 8 --------
+..B
+...
+W..
