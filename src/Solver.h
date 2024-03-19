@@ -22,6 +22,7 @@ public:
      * Finds a solution and stores it internally
      */
     void solve(BoardState & boardState, int step) {
+        upperBound = getInitUpperBound(boardState);
         optimalSolution = solveInner(boardState, step);
     }
 
@@ -63,6 +64,11 @@ public:
 private:
     const InstanceInfo & instanceInfo;
     vector<pair<position,position>> optimalSolution;
+    /**
+     * First, it is set by the getInitUpperBound method
+     * Then, it is the size of the current solution
+     */
+    size_t upperBound{};
     size_t nIterations = 0;
 
     vector<pair<position,position>> solveInner(BoardState & boardState, int step) {
@@ -88,7 +94,7 @@ private:
                     continue;
 
                 size_t nextLowerBound = boardState.lowerBound - knightDistances.find(current)->second + knightDistances.find(next)->second;
-                if (step + nextLowerBound + 1 >= boardState.upperBound) {
+                if (step + nextLowerBound + 1 >= upperBound) {
                     continue;
                 }
 
@@ -161,6 +167,48 @@ private:
 
     static bool nextCallComparator(const NextMoveInfo &a, const NextMoveInfo &b) {
         return a.nextLowerBound < b.nextLowerBound;
+    }
+
+    /**
+     * A sum of minimal distances to the most distant squares in destination areas of all knights
+     */
+    int getInitUpperBound(BoardState & boardState) {
+        int res = 0;
+
+        // For each position, find the shortest path to the most distant square in the destination area for given color using BFS
+        for (const auto& opt : {make_pair(boardState.whites, BLACK), make_pair(boardState.blacks, WHITE)}) {
+            for (const int& pos: opt.first) {
+                int mostDistantDestPathLen;
+                // first: position
+                // second.first: number of steps traveled so far from that pos
+                // second.second: number of destination squares visited
+                queue<pair<position, pair<int, int>>> q;
+                q.emplace(pos, make_pair(0, 0));
+
+                while (true) {
+                    position current = q.front().first;
+                    int length = q.front().second.first;
+                    int destVisited = q.front().second.second;
+                    q.pop();
+
+                    if (instanceInfo.squareType[current] == opt.second) {
+                        destVisited++;
+                    }
+                    if (destVisited == instanceInfo.nKnightsInParty) {
+                        mostDistantDestPathLen = length;
+                        break;
+                    }
+
+                    for (const position &next: instanceInfo.movesForPos.find(current)->second) {
+                        q.emplace(next, make_pair(length + 1, destVisited));
+                    }
+                }
+
+                res += mostDistantDestPathLen;
+            }
+        }
+
+        return res+1;
     }
 
     /**

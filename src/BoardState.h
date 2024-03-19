@@ -36,7 +36,6 @@ public:
         }
 
         lowerBound = getInitLowerBound();
-        upperBound = getInitUpperBound();
     }
 
     BoardState(const BoardState & o) = default;
@@ -54,7 +53,7 @@ public:
      * For each position on the game board, it says whether it is occupied or not
      */
     vector<bool> boardOccupation;
-    size_t lowerBound, upperBound;
+    size_t lowerBound;
     /**
      * Vector of pairs where the first item is a starting point and the second item is an ending point of given move
      */
@@ -72,48 +71,6 @@ private:
         for (auto const & b : blacks)
             res += instanceInfo.minDistancesBlacks.find(b)->second;
         return res;
-    }
-
-    /**
-     * A sum of minimal distances to the most distant squares in destination areas of all knights
-     */
-    int getInitUpperBound() {
-        int res = 0;
-
-        // For each position, find the shortest path to the most distant square in the destination area for given color using BFS
-        for (const auto& opt : {make_pair(whites, BLACK), make_pair(blacks, WHITE)}) {
-            for (const int& pos: opt.first) {
-                int mostDistantDestPathLen;
-                // first: position
-                // second.first: number of steps traveled so far from that pos
-                // second.second: number of destination squares visited
-                queue<pair<position, pair<int, int>>> q;
-                q.emplace(pos, make_pair(0, 0));
-
-                while (true) {
-                    position current = q.front().first;
-                    int length = q.front().second.first;
-                    int destVisited = q.front().second.second;
-                    q.pop();
-
-                    if (instanceInfo.squareType[current] == opt.second) {
-                        destVisited++;
-                    }
-                    if (destVisited == instanceInfo.nKnightsInParty) {
-                        mostDistantDestPathLen = length;
-                        break;
-                    }
-
-                    for (const position &next: instanceInfo.movesForPos.find(current)->second) {
-                        q.emplace(next, make_pair(length + 1, destVisited));
-                    }
-                }
-
-                res += mostDistantDestPathLen;
-            }
-        }
-
-        return res+1;
     }
 };
 
