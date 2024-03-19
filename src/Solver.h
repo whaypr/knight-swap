@@ -23,19 +23,19 @@ public:
      */
     void solve(BoardState & boardState, int step) {
         upperBound = getInitUpperBound(boardState);
-        optimalSolution = solveInner(boardState, step);
+            solveInner(boardState, step);
     }
 
     /**
      * Prints the internally stored solution
      */
     void printSolution() {
-        if (optimalSolution.empty()) {
+        if (solution.empty()) {
             cout << "Solution either does not exist or it is trivial (zero moves)!" << endl;
             return;
         }
 
-        cout << "Solution length: " << optimalSolution.size() << endl;
+        cout << "Solution length: " << solution.size() << endl;
         cout << "Found after " << nIterations << " iterations" << endl;
         int moveNum = 0;
 
@@ -53,7 +53,7 @@ public:
         printBoard(board);
 
         // get and print next board states according to the solution
-        for (const auto & move: optimalSolution) {
+        for (const auto & move: solution) {
             board[move.second] = board[move.first];
             board[move.first] = '.';
             cout << "-------- MOVE " << moveNum++ << " --------" << endl;
@@ -63,7 +63,8 @@ public:
 
 private:
     const InstanceInfo & instanceInfo;
-    vector<pair<position,position>> optimalSolution;
+
+    vector<pair<position,position>> solution;
     /**
      * First, it is set by the getInitUpperBound method
      * Then, it is the size of the current solution
@@ -71,12 +72,16 @@ private:
     size_t upperBound{};
     size_t nIterations = 0;
 
-    vector<pair<position,position>> solveInner(BoardState & boardState, int step) {
+    void solveInner(BoardState & boardState, int step) {
         nIterations++;
 
         // a (possibly not optimal) solution is found
-        if (boardState.whitesLeft + boardState.blacksLeft == 0)
-            return boardState.solutionCandidate;
+        if (boardState.whitesLeft + boardState.blacksLeft == 0)  {
+            if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
+                    solution = boardState.solutionCandidate;
+                    upperBound = boardState.solutionCandidate.size();
+            }
+        }
 
         /* prepare information for all viable next moves (recursive calls) */
 
@@ -137,21 +142,11 @@ private:
             newBoardState.lowerBound = nextLowerBound;
             newBoardState.solutionCandidate.emplace_back(current, next);
 
-            /* do the call and update solution if needed */
+            /* do the call */
 
-            auto res = solveInner(newBoardState, step + 1);
-
-            if (!res.empty() && res.size() < boardState.upperBound) {
-                if (res.size() == boardState.lowerBound) {
-                    return res;
-                }
-
-                boardState.solution = res;
-                boardState.upperBound = res.size();
+                solveInner(newBoardState, step + 1);
             }
         }
-
-        return boardState.solution;
     }
 
     /**

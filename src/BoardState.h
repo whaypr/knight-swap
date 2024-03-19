@@ -15,8 +15,7 @@ public:
             instanceInfo(instanceInfo),
             whitesLeft(instanceInfo.nKnightsInParty),
             blacksLeft(instanceInfo.nKnightsInParty),
-            solutionCandidate(vector<pair<position,position>>()),
-            solution(vector<pair<position,position>>()) {
+            solutionCandidate(vector<pair<position,position>>()) {
 
         for (position pos = 0; pos < instanceInfo.nSquares; ++pos) {
             SquareType type = instanceInfo.squareType[pos];
@@ -57,7 +56,7 @@ public:
     /**
      * Vector of pairs where the first item is a starting point and the second item is an ending point of given move
      */
-    vector<pair<position,position>> solutionCandidate, solution;
+    vector<pair<position,position>> solutionCandidate;
 
 private:
 
