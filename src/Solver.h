@@ -36,7 +36,7 @@ public:
 
         cout << "Solution length: " << optimalSolution.size() << endl;
         cout << "Found after " << nIterations << " iterations" << endl;
-        int i = 0;
+        int moveNum = 0;
 
         // get and print init board state
         vector<char> board;
@@ -48,14 +48,14 @@ public:
             else
                 board.emplace_back('.');
         }
-        cout << "-------- MOVE " << i++ << " --------" << endl;
+        cout << "-------- MOVE " << moveNum++ << " --------" << endl;
         printBoard(board);
 
         // get and print next board states according to the solution
         for (const auto & move: optimalSolution) {
             board[move.second] = board[move.first];
             board[move.first] = '.';
-            cout << "-------- MOVE " << i++ << " --------" << endl;
+            cout << "-------- MOVE " << moveNum++ << " --------" << endl;
             printBoard(board);
         }
     }
@@ -166,7 +166,7 @@ private:
     /**
      * Converts the 1D game board representation back to 2D
      */
-    void printBoard(const vector<char> & board) {
+    void printBoard(const vector<char> & board) const {
         int i = instanceInfo.inputData.nCols;
         for (const auto & square : board) {
             if (i == 0) {
