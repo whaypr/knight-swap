@@ -25,7 +25,13 @@ public:
     void solve(BoardState & boardState, int step) {
         initLowerBound = boardState.lowerBound;
         upperBound = getInitUpperBound(boardState);
-            solveInner(boardState, step);
+
+        vector<BoardState> initStates = getInitStates(boardState, step);
+
+        #pragma omp parallel for
+        for (int i = 0; i < initStates.size(); ++i) {
+            solveInner(initStates[i], step);
+        }
     }
 
     /**
@@ -81,6 +87,9 @@ private:
     size_t nIterations = 0;
 
     void solveInner(BoardState & boardState, int step) {
+        if (solution.size() == initLowerBound)
+            return;
+
         #pragma omp critical
         nIterations++;
 
@@ -156,9 +165,7 @@ private:
 
             /* do the call */
 
-            {
-                solveInner(newBoardState, step + 1);
-            }
+            solveInner(newBoardState, step + 1);
         }
     }
 
@@ -217,6 +224,93 @@ private:
         }
 
         return res+1;
+    }
+
+    /**
+     * From one initial state, gets many of them
+     *
+     * A modification of the solverInner method
+     * without doing recursive calls and with storing and returning states using BFS
+     *
+     * TODO refactor this to avoid code duplication while preserving efficiency
+     */
+    vector<BoardState> getInitStates(BoardState & initState, int initStep) {
+        queue<pair<BoardState, int>> q; // board state and the corresponding step
+        q.emplace(initState, initStep);
+
+        int minNumOfStates = omp_get_max_threads() * 3;
+        while (q.size() < minNumOfStates) {
+            BoardState state = q.front().first;
+            int step = q.front().second;
+            q.pop();
+
+            // a (possibly not optimal) solution is found
+            if (state.whitesLeft + state.blacksLeft == 0)  {
+                if (!state.solutionCandidate.empty() && state.solutionCandidate.size() < upperBound) {
+                    solution = state.solutionCandidate;
+                    upperBound = state.solutionCandidate.size();
+                }
+            }
+
+            /* prepare all viable next states */
+
+            bool areWhitesOnTurn = ((step % 2 == 1) && (state.whitesLeft > 0)) || (state.blacksLeft == 0);
+            const vector<position> & knights = areWhitesOnTurn ? state.whites : state.blacks;
+            const map<position, int> & knightDistances = areWhitesOnTurn ? instanceInfo.minDistancesWhites : instanceInfo.minDistancesBlacks;
+
+            for (int i = 0; i < knights.size(); ++i) {
+                position current = knights[i];
+
+                for (const position & next: instanceInfo.movesForPos.find(current)->second) {
+                    if (state.boardOccupation[next])
+                        continue;
+
+                    size_t nextLowerBound = state.lowerBound - knightDistances.find(current)->second + knightDistances.find(next)->second;
+                    if (step + nextLowerBound + 1 >= upperBound) {
+                        continue;
+                    }
+
+                    /* prepare a new board state */
+
+                    BoardState newBoardState(state);
+
+                    if (areWhitesOnTurn) {
+                        newBoardState.whites[i] = next;
+
+                        if (instanceInfo.squareType[current] == BLACK)
+                            newBoardState.whitesLeft++;
+                        if (instanceInfo.squareType[next] == BLACK)
+                            newBoardState.whitesLeft--;
+                    } else {
+                        newBoardState.blacks[i] = next;
+
+                        if (instanceInfo.squareType[current] == WHITE)
+                            newBoardState.blacksLeft++;
+                        if (instanceInfo.squareType[next] == WHITE)
+                            newBoardState.blacksLeft--;
+                    }
+
+                    newBoardState.boardOccupation[current] = false;
+                    newBoardState.boardOccupation[next] = true;
+                    newBoardState.lowerBound = nextLowerBound;
+                    newBoardState.solutionCandidate.emplace_back(current, next);
+
+                    /* push it to the result */
+
+                    q.emplace(newBoardState, step + 1);
+                }
+            }
+        }
+
+        /* convert to vector and return */
+
+        vector<BoardState> states;
+        while (!q.empty()) {
+            states.push_back(q.front().first);
+            q.pop();
+        }
+
+        return states;
     }
 
     /**
