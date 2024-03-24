@@ -25,7 +25,12 @@ public:
     void solve(BoardState & boardState, int step) {
         initLowerBound = boardState.lowerBound;
         upperBound = getInitUpperBound(boardState);
+
+        #pragma omp parallel
+        {
+            #pragma omp single
             solveInner(boardState, step);
+        }
     }
 
     /**
@@ -156,8 +161,10 @@ private:
 
             /* do the call */
 
+            #pragma omp task
             {
                 solveInner(newBoardState, step + 1);
+                #pragma omp cancel taskgroup if (solution.size() == initLowerBound)
             }
         }
     }
