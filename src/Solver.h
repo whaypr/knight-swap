@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iostream>
 #include "Types.h"
+#include <omp.h>
 #include "BoardState.h"
 
 using namespace std;
