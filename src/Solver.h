@@ -81,13 +81,17 @@ private:
     size_t nIterations = 0;
 
     void solveInner(BoardState & boardState, int step) {
+        #pragma omp critical
         nIterations++;
 
         // a (possibly not optimal) solution is found
         if (boardState.whitesLeft + boardState.blacksLeft == 0)  {
             if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
+                #pragma omp critical
+                if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
                     solution = boardState.solutionCandidate;
                     upperBound = boardState.solutionCandidate.size();
+                }
             }
         }
 
