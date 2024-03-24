@@ -22,6 +22,7 @@ public:
      * Finds a solution and stores it internally
      */
     void solve(BoardState & boardState, int step) {
+        initLowerBound = boardState.lowerBound;
         upperBound = getInitUpperBound(boardState);
             solveInner(boardState, step);
     }
@@ -64,12 +65,18 @@ public:
 private:
     const InstanceInfo & instanceInfo;
 
-    vector<pair<position,position>> solution;
+    /**
+     * To let all threads know they can stop searching
+     * when current solution size reaches the initial board state's lower bound
+     */
+    size_t initLowerBound;
     /**
      * First, it is set by the getInitUpperBound method
      * Then, it is the size of the current solution
      */
     size_t upperBound{};
+    vector<pair<position,position>> solution;
+
     size_t nIterations = 0;
 
     void solveInner(BoardState & boardState, int step) {
@@ -144,6 +151,7 @@ private:
 
             /* do the call */
 
+            {
                 solveInner(newBoardState, step + 1);
             }
         }
