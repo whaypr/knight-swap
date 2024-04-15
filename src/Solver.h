@@ -26,11 +26,11 @@ public:
         initLowerBound = boardState.lowerBound;
         upperBound = getInitUpperBound(boardState);
 
-        vector<BoardState> initStates = getInitStates(boardState, step);
+        vector<pair<BoardState, int>> initStates = getInitStates(boardState, step);
 
         #pragma omp parallel for
         for (int i = 0; i < initStates.size(); ++i) {
-            solveInner(initStates[i], step);
+            solveInner(initStates[i].first, initStates[i].second);
         }
     }
 
@@ -234,7 +234,7 @@ private:
      *
      * TODO refactor this to avoid code duplication while preserving efficiency
      */
-    vector<BoardState> getInitStates(BoardState & initState, int initStep) {
+    vector<pair<BoardState, int>> getInitStates(BoardState & initState, int initStep) {
         queue<pair<BoardState, int>> q; // board state and the corresponding step
         q.emplace(initState, initStep);
 
@@ -304,9 +304,9 @@ private:
 
         /* convert to vector and return */
 
-        vector<BoardState> states;
+        vector<pair<BoardState, int>> states;
         while (!q.empty()) {
-            states.push_back(q.front().first);
+            states.emplace_back(q.front());
             q.pop();
         }
 
