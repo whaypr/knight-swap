@@ -17,18 +17,19 @@ using namespace std;
  */
 class InstanceInfo {
 public:
-    explicit InstanceInfo(const InputData & inputData) :
-            inputData(inputData),
-            movesForPos(createMovesForPos()),
-            nSquares(inputData.nCols * inputData.nRows),
-            nKnightsInParty(inputData.nKnightsInParty),
-            squareType(buildSquareType()),
-            minDistancesWhites(calculateMinDistances(BLACK)),
-            minDistancesBlacks(calculateMinDistances(WHITE))
+    explicit InstanceInfo(map<position,vector<position>> movesForPos,
+                          const int nSquares, const int nKnightsInParty,
+                          vector<SquareType> squareType,
+                          map<position, int> minDistancesWhites, map<position, int> minDistancesBlacks) :
+            movesForPos(std::move(movesForPos)),
+            nSquares(nSquares),
+            nKnightsInParty(nKnightsInParty),
+            squareType(std::move(squareType)),
+            minDistancesWhites(std::move(minDistancesWhites)),
+            minDistancesBlacks(std::move(minDistancesBlacks))
     {
     }
 
-    const InputData & inputData;
     /**
      * For each position on the game board, it says all the possible destinations a knight can goes to from that position
      */
@@ -47,105 +48,80 @@ public:
      */
     const map<position, int> minDistancesWhites, minDistancesBlacks;
 
-private:
+    vector<int> serialize() const {
+        vector<int> buffer;
 
-    // helpers used for the initialization
+        buffer.push_back(nSquares);
+        buffer.push_back(nKnightsInParty);
 
-    vector<SquareType> buildSquareType() const {
-        vector<SquareType> res;
+        for (const auto& item : movesForPos) {
+            buffer.push_back(item.first); // position
+            buffer.push_back((int)item.second.size()); // number of moves on that position
 
-        for (int row = 0; row < inputData.nRows; ++row) {
-            for (int col = 0; col < inputData.nCols; ++col) {
-                if (row >= inputData.whiteArea1_row && row <= inputData.whiteArea2_row &&
-                    col >= inputData.whiteArea1_col && col <= inputData.whiteArea2_col) {
-                    res.push_back(WHITE);
-                } else if (row >= inputData.blackArea1_row && row <= inputData.blackArea2_row &&
-                           col >= inputData.blackArea1_col && col <= inputData.blackArea2_col) {
-                    res.push_back(BLACK);
-                } else {
-                    res.push_back(BASIC);
-                }
-            }
+            for (const auto& move : item.second)
+                buffer.push_back(move); // moves
         }
 
-        return res;
-    }
-
-    map<position, int> calculateMinDistances(const SquareType & color) const {
-        map<position, int> res;
-
-        // For each position, find the shortest path to the destination area for given color using BFS
-        for (position pos = 0; pos < nSquares; ++pos) {
-            int shortest = 99999999;
-            set<position> visited;
-            visited.insert(pos);
-            queue<pair<position, int>> q; // first: position, second: number of steps traveled so far from that pos
-            q.emplace(pos, 0);
-
-            while (!q.empty()) {
-                position current = q.front().first;
-                int length = q.front().second;
-                q.pop();
-
-                if (squareType[current] == color) {
-                    shortest = length;
-                    break;
-                }
-
-                for (const position & next : movesForPos.find(current)->second) {
-                    if (visited.find(next) == visited.end()) {
-                        q.emplace(next, length + 1);
-                        visited.insert(next);
-                    }
-                }
-            }
-
-            res.insert({pos, shortest});
+        for (const auto& st : squareType) {
+            buffer.push_back(st);
         }
 
-        return res;
-    }
-
-    /**
-     * Maps the 2D array coordinates into a 1D array index
-     */
-    position flatten(int row, int col) const {
-        return row * inputData.nCols + col;
-    }
-
-    map<position,vector<position>> createMovesForPos() const {
-        map<position,vector<position>> res;
-
-        // all the possible pattern a knight can make
-        vector<pair<int,int>> patterns = {
-                make_pair(-2,-1),
-                make_pair(-2, 1),
-                make_pair(-1, -2),
-                make_pair(-1, 2),
-                make_pair(1, -2),
-                make_pair(1, 2),
-                make_pair(2, -1),
-                make_pair(2, 1)
-        };
-
-        for (int row = 0; row < inputData.nRows; ++row) {
-            for (int col = 0; col < inputData.nCols; ++col) {
-                vector<position> jumpDestinations;
-
-                for (const auto& pattern : patterns) {
-                    int rowNew = row + pattern.first;
-                    int colNew = col + pattern.second;
-
-                    if (colNew >= 0 && colNew < inputData.nCols && rowNew >= 0 && rowNew < inputData.nRows) {
-                        jumpDestinations.emplace_back(flatten(rowNew, colNew));
-                    }
-                }
-
-                res.emplace(flatten(row, col), std::move(jumpDestinations));
-            }
+        for (const auto& item : minDistancesWhites) {
+            buffer.push_back(item.first);
+            buffer.push_back(item.second);
         }
 
-        return res;
+        for (const auto& item : minDistancesBlacks) {
+            buffer.push_back(item.first);
+            buffer.push_back(item.second);
+        }
+
+        return buffer;
+    }
+
+    static InstanceInfo deserialize(vector<int>& buffer) {
+        int bufferIndex = 0;
+
+        int nSquares = buffer[bufferIndex++];
+        int nKnightsInParty = buffer[bufferIndex++];
+
+        map<position,vector<position>> movesForPos;
+        for (int i = 0; i < nSquares; ++i) {
+            int pos = buffer[bufferIndex++];
+            int nMoves = buffer[bufferIndex++];
+
+            vector<position> moves;
+            for (int j = 0; j < nMoves; ++j)
+                moves.push_back(buffer[bufferIndex++]);
+
+            movesForPos[pos] = std::move(moves);
+        }
+
+        vector<SquareType> squareType;
+        for (int i = 0; i < nSquares; ++i) {
+            squareType.push_back(static_cast<SquareType>(buffer[bufferIndex++]));
+        }
+
+        map<position, int> minDistancesWhites;
+        for (int i = 0; i < nSquares; ++i) {
+            int id = buffer[bufferIndex++];
+            minDistancesWhites[id] = buffer[bufferIndex++];
+        }
+
+        map<position, int> minDistancesBlacks;
+        for (int i = 0; i < nSquares; ++i) {
+            int id = buffer[bufferIndex++];
+            minDistancesBlacks[id] = buffer[bufferIndex++];
+        }
+
+        return InstanceInfo(
+                movesForPos,
+                nSquares,
+                nKnightsInParty,
+                squareType,
+                minDistancesWhites,
+                minDistancesBlacks
+        );
     }
 };
 
