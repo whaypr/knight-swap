@@ -15,4 +15,14 @@ enum SquareType {
     BLACK
 };
 
+/***
+ * MPI TAG
+ */
+enum TAG {
+    INSTANCE_INFO,
+    BOARD_STATE,
+    BOARD_STATE_OTHERS,
+    END
+};
+
 #endif //KNIGHT_SWAP_TYPES_H

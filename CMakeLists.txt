@@ -9,9 +9,10 @@ find_package(MPI REQUIRED)
 add_executable(knight_swap src/main.cpp
         src/InputData.h
         src/Types.h
-        src/Solver.h
+        src/SolverMaster.h
         src/InstanceInfo.h
         src/BoardState.h
+        src/SolverSlave.h
         src/InstanceInfoBuilder.h
         src/BoardStateBuilder.h
 )

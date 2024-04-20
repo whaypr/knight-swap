@@ -1,11 +1,11 @@
-#ifndef KNIGHT_SWAP_SOLVER_H
-#define KNIGHT_SWAP_SOLVER_H
+#ifndef KNIGHT_SWAP_SOLVERMASTER_H
+#define KNIGHT_SWAP_SOLVERMASTER_H
 
-#include <utility>
 #include <algorithm>
 #include <iostream>
 #include "Types.h"
 #include <omp.h>
+#include <mpi.h>
 #include "BoardState.h"
 
 using namespace std;
@@ -13,10 +13,12 @@ using namespace std;
 /**
  * Used to finding and printing a solution for given problem instance
  */
-class Solver {
+class SolverMaster {
 public:
-    explicit Solver(const InstanceInfo & instanceInfo) :
-        instanceInfo(instanceInfo) {
+    explicit SolverMaster(const InputData & inputData, const InstanceInfo & instanceInfo, int nSlaves) :
+        inputData(inputData),
+        instanceInfo(instanceInfo),
+        nSlaves(nSlaves) {
     }
 
     /**
@@ -26,17 +28,75 @@ public:
         initLowerBound = boardState.lowerBound;
         upperBound = getInitUpperBound(boardState);
 
-        #pragma omp parallel
-        {
-            #pragma omp single
-            solveInner(boardState, step);
+        // prepare init tasks which will be sent to the slaves to be processed
+        queue<pair<BoardState, int>> initStates = getInitStates(boardState, step);
+
+        // init work of the slaves by sending them the first task
+        for (int i = 1; i <= nSlaves; ++i) {
+            auto state = initStates.front();
+            initStates.pop();
+
+            vector<int> bufferBoardState = boardState.serialize();
+            MPI_Send(bufferBoardState.data(), (int)bufferBoardState.size(), MPI_INT, i, TAG::BOARD_STATE, MPI_COMM_WORLD);
+
+            vector<int> buffer;
+            buffer.push_back(initLowerBound);
+            buffer.push_back(upperBound);
+            buffer.push_back(step);
+            MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, i, TAG::BOARD_STATE_OTHERS, MPI_COMM_WORLD);
         }
+
+        cout << "[MASTER] init batch sent" << endl;
+
+        // process the rest of the tasks
+        int bufferSize = 200 * 2;
+        while (nSlaves > 0) {
+            std::vector<int> message(bufferSize);
+            MPI_Status status;
+            MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
+            int bufferIndex = 0;
+            int size = message[bufferIndex++];
+
+            // better solution found
+            if (size < upperBound) {
+                solution.clear();
+                for (int i = 0; i < size; ++i) {
+                    int first = message[bufferIndex++];
+                    int second = message[bufferIndex++];
+                    solution.emplace_back(first, second);
+                }
+            }
+
+            // no more work to do
+            if (initStates.empty()) {
+                MPI_Request dummy_handle;
+                MPI_Isend(nullptr, 0, MPI_INT, status.MPI_SOURCE, TAG::END, MPI_COMM_WORLD, &dummy_handle);
+                nSlaves--;
+            } else {
+                auto state = initStates.front();
+                initStates.pop();
+
+                vector<int> bufferBoardState = boardState.serialize();
+                MPI_Send(bufferBoardState.data(), (int)bufferBoardState.size(), MPI_INT, status.MPI_SOURCE, TAG::BOARD_STATE, MPI_COMM_WORLD);
+
+                vector<int> buffer;
+                buffer.push_back(initLowerBound);
+                buffer.push_back(upperBound);
+                buffer.push_back(step);
+                MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, status.MPI_SOURCE, TAG::BOARD_STATE_OTHERS, MPI_COMM_WORLD);
+            }
+        }
+
+        cout << "[MASTER] end" << endl;
     }
 
     /**
      * Prints the internally stored solution
      */
     void printSolution() {
+        cout << "\nSOLUTION\n----------------------" << endl;
+
         if (solution.empty()) {
             cout << "Solution either does not exist or it is trivial (zero moves)!" << endl;
             return;
@@ -69,7 +129,9 @@ public:
     }
 
 private:
+    const InputData & inputData;
     const InstanceInfo & instanceInfo;
+    int nSlaves;
 
     /**
      * To let all threads know they can stop searching
@@ -84,108 +146,6 @@ private:
     vector<pair<position,position>> solution;
 
     size_t nIterations = 0;
-
-    void solveInner(BoardState & boardState, int step) {
-        if (solution.size() == initLowerBound)
-            return;
-
-        #pragma omp critical
-        nIterations++;
-
-        // a (possibly not optimal) solution is found
-        if (boardState.whitesLeft + boardState.blacksLeft == 0)  {
-            if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
-                #pragma omp critical
-                if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
-                    solution = boardState.solutionCandidate;
-                    upperBound = boardState.solutionCandidate.size();
-                }
-            }
-        }
-
-        /* prepare information for all viable next moves (recursive calls) */
-
-        vector<NextMoveInfo> nextMovesInfo;
-
-        bool areWhitesOnTurn = ((step % 2 == 1) && (boardState.whitesLeft > 0)) || (boardState.blacksLeft == 0);
-        const vector<position> & knights = areWhitesOnTurn ? boardState.whites : boardState.blacks;
-        const map<position, int> & knightDistances = areWhitesOnTurn ? instanceInfo.minDistancesWhites : instanceInfo.minDistancesBlacks;
-
-        for (int i = 0; i < knights.size(); ++i) {
-            position current = knights[i];
-
-            for (const position & next: instanceInfo.movesForPos.find(current)->second) {
-                if (boardState.boardOccupation[next])
-                    continue;
-
-                size_t nextLowerBound = boardState.lowerBound - knightDistances.find(current)->second + knightDistances.find(next)->second;
-                if (step + nextLowerBound + 1 >= upperBound) {
-                    continue;
-                }
-
-                nextMovesInfo.emplace_back(nextLowerBound, i, current, next);
-            }
-        }
-
-        /* perform all viable next moves (recursive calls) */
-
-        sort(nextMovesInfo.begin(), nextMovesInfo.end(), nextCallComparator);
-
-        for (const auto & item : nextMovesInfo) {
-            int i = item.knightIndex;
-            position current = item.currentPos;
-            position next = item.nextPos;
-            int nextLowerBound = item.nextLowerBound;
-
-            /* prepare a board state for the next call */
-
-            BoardState newBoardState(boardState);
-
-            if (areWhitesOnTurn) {
-                newBoardState.whites[i] = next;
-
-                if (instanceInfo.squareType[current] == BLACK)
-                    newBoardState.whitesLeft++;
-                if (instanceInfo.squareType[next] == BLACK)
-                    newBoardState.whitesLeft--;
-            } else {
-                newBoardState.blacks[i] = next;
-
-                if (instanceInfo.squareType[current] == WHITE)
-                    newBoardState.blacksLeft++;
-                if (instanceInfo.squareType[next] == WHITE)
-                    newBoardState.blacksLeft--;
-            }
-
-            newBoardState.boardOccupation[current] = false;
-            newBoardState.boardOccupation[next] = true;
-            newBoardState.lowerBound = nextLowerBound;
-            newBoardState.solutionCandidate.emplace_back(current, next);
-
-            /* do the call */
-            
-            #pragma omp task
-            {
-                solveInner(newBoardState, step + 1);
-                #pragma omp cancel taskgroup if (solution.size() == initLowerBound)
-            }
-        }
-    }
-
-    /**
-     * Helper structure holding information needed for recursive calls
-     */
-    struct NextMoveInfo {
-        NextMoveInfo(int nextLowerBound, int knightIndex, position currentPos, position nextPos) :
-                nextLowerBound(nextLowerBound), knightIndex(knightIndex), currentPos(currentPos), nextPos(nextPos) {
-        }
-
-        int nextLowerBound, knightIndex, currentPos, nextPos;
-    };
-
-    static bool nextCallComparator(const NextMoveInfo &a, const NextMoveInfo &b) {
-        return a.nextLowerBound < b.nextLowerBound;
-    }
 
     /**
      * A sum of minimal distances to the most distant squares in destination areas of all knights
@@ -237,7 +197,7 @@ private:
      *
      * TODO refactor this to avoid code duplication while preserving efficiency
      */
-    vector<pair<BoardState, int>> getInitStates(BoardState & initState, int initStep) {
+    queue<pair<BoardState, int>> getInitStates(BoardState & initState, int initStep) {
         queue<pair<BoardState, int>> q; // board state and the corresponding step
         q.emplace(initState, initStep);
 
@@ -305,26 +265,18 @@ private:
             }
         }
 
-        /* convert to vector and return */
-
-        vector<pair<BoardState, int>> states;
-        while (!q.empty()) {
-            states.emplace_back(q.front());
-            q.pop();
-        }
-
-        return states;
+        return q;
     }
 
     /**
      * Converts the 1D game board representation back to 2D
      */
     void printBoard(const vector<char> & board) const {
-        int i = instanceInfo.inputData.nCols;
+        int i = inputData.nCols;
         for (const auto & square : board) {
             if (i == 0) {
                 cout << endl;
-                i = instanceInfo.inputData.nCols;
+                i = inputData.nCols;
             }
             cout << square;
             i--;
@@ -333,4 +285,4 @@ private:
     }
 };
 
-#endif //KNIGHT_SWAP_SOLVER_H
+#endif //KNIGHT_SWAP_SOLVERMASTER_H
