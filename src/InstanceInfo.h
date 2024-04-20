@@ -33,7 +33,7 @@ public:
     /**
      * For each position on the game board, it says all the possible destinations a knight can goes to from that position
      */
-    map<position,vector<position>> movesForPos;
+    const map<position,vector<position>> movesForPos;
     /**
      * Total amount of squares on the game board
      */
