@@ -1,5 +1,6 @@
 #include "InputData.h"
 #include "InstanceInfo.h"
+#include "BoardStateBuilder.h"
 #include "BoardState.h"
 #include "Solver.h"
 

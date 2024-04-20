@@ -11,35 +11,22 @@ using namespace std;
  */
 class BoardState {
 public:
-    explicit BoardState(const InstanceInfo & instanceInfo) :
-            instanceInfo(instanceInfo),
-            whitesLeft(instanceInfo.nKnightsInParty),
-            blacksLeft(instanceInfo.nKnightsInParty),
-            solutionCandidate(vector<pair<position,position>>()) {
-
-        for (position pos = 0; pos < instanceInfo.nSquares; ++pos) {
-            SquareType type = instanceInfo.squareType[pos];
-            switch (type) {
-                case WHITE:
-                    whites.emplace_back(pos);
-                    boardOccupation.emplace_back(true);
-                    break;
-                case BLACK:
-                    blacks.emplace_back(pos);
-                    boardOccupation.emplace_back(true);
-                    break;
-                case BASIC:
-                    boardOccupation.emplace_back(false);
-                    break;
-            }
-        }
-
-        lowerBound = getInitLowerBound();
+    explicit BoardState(int whitesLeft, int blacksLeft,
+                        vector<position> whites, vector<position> blacks, vector<bool> boardOccupation,
+                        size_t lowerBound,
+                        vector<pair<position,position>> solutionCandidate
+                        ) :
+        whitesLeft(whitesLeft),
+        blacksLeft(blacksLeft),
+        whites(std::move(whites)),
+        blacks(std::move(blacks)),
+        boardOccupation(std::move(boardOccupation)),
+        lowerBound(lowerBound),
+        solutionCandidate(std::move(solutionCandidate)) {
     }
 
     BoardState(const BoardState & o) = default;
 
-    const InstanceInfo & instanceInfo;
     /**
      * How many knights of given color are still not in a destination area
      */
@@ -58,18 +45,72 @@ public:
      */
     vector<pair<position,position>> solutionCandidate;
 
-private:
+    vector<int> serialize() {
+        vector<int> buffer;
 
-    /**
-     * A sum of minimal distances to destination areas of all knights
-     */
-    int getInitLowerBound() {
-        int res = 0;
-        for (auto const & w : whites)
-            res += instanceInfo.minDistancesWhites.find(w)->second;
-        for (auto const & b : blacks)
-            res += instanceInfo.minDistancesBlacks.find(b)->second;
-        return res;
+        buffer.push_back(whitesLeft);
+        buffer.push_back(blacksLeft);
+
+        buffer.push_back((int)whites.size());
+        for (const auto& pos : whites)
+            buffer.push_back(pos);
+
+        buffer.push_back((int)blacks.size());
+        for (const auto& pos : blacks)
+            buffer.push_back(pos);
+
+        buffer.push_back((int)boardOccupation.size());
+        for (const bool bo : boardOccupation)
+            buffer.push_back(bo);
+
+        buffer.push_back((int)lowerBound);
+
+        buffer.push_back((int)solutionCandidate.size());
+        for (const auto& item : solutionCandidate) {
+            buffer.push_back(item.first);
+            buffer.push_back(item.second);
+        }
+
+        return buffer;
+    }
+
+    static BoardState deserialize(vector<int>& buffer) {
+        int bufferIndex = 0;
+
+        int whitesLeft = buffer[bufferIndex++];
+        int blacksLeft = buffer[bufferIndex++];
+
+        vector<position> whites;
+        int size = buffer[bufferIndex++];
+        for (int i = 0; i < size; ++i)
+            whites.push_back(buffer[bufferIndex++]);
+
+        vector<position> blacks;
+        size = buffer[bufferIndex++];
+        for (int i = 0; i < size; ++i)
+            blacks.push_back(buffer[bufferIndex++]);
+
+        vector<bool> boardOccupation;
+        size = buffer[bufferIndex++];
+        for (int i = 0; i < size; ++i)
+            boardOccupation.push_back(buffer[bufferIndex++]);
+
+        int lowerBound = buffer[bufferIndex++];
+
+        vector<pair<position,position>> solutionCandidate;
+        size = buffer[bufferIndex++];
+        for (int i = 0; i < size; ++i) {
+            int first = buffer[bufferIndex++];
+            int second = buffer[bufferIndex++];
+            solutionCandidate.emplace_back(first, second);
+        }
+
+        return BoardState(
+                whitesLeft, blacksLeft,
+                whites, blacks, boardOccupation,
+                lowerBound,
+                solutionCandidate
+        );
     }
 };
 

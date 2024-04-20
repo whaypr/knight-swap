@@ -12,6 +12,7 @@ add_executable(knight_swap src/main.cpp
         src/Solver.h
         src/InstanceInfo.h
         src/BoardState.h
+        src/BoardStateBuilder.h
 )
 
 target_link_libraries(knight_swap PRIVATE OpenMP::OpenMP_CXX)
