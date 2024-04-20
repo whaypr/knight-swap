@@ -63,11 +63,12 @@ int main(int argc, char* argv[]) {
         vector<int> message(bufferSize);
 
         // get instance info
-        MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, TAG::INSTANCE_INFO, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(message.data(), bufferSize, MPI_INT, 0, TAG::INSTANCE_INFO, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         const InstanceInfo instanceInfo = InstanceInfo::deserialize(message);
 
         // keep receiving and solving subtasks as long as there are some
         while (true) {
+
             // check whether end or not - if all work is done, the master will send a command to end
             MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
             if (status.MPI_TAG == TAG::END)
@@ -76,7 +77,7 @@ int main(int argc, char* argv[]) {
             // get a board state to be worked on
             MPI_Recv(message.data(), bufferSize, MPI_INT, 0, TAG::BOARD_STATE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             BoardState boardState = BoardState::deserialize(message);
-            cout << "[SLAVE " << rank << "] board received" << endl;
+            cout << "\t[SLAVE " << rank << "] board received" << endl;
 
             // get some additional info about state of the solution-finding process
             MPI_Recv(message.data(), bufferSize, MPI_INT, 0, TAG::BOARD_STATE_OTHERS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -84,6 +85,7 @@ int main(int argc, char* argv[]) {
             size_t initLowerBound = message[bufferIndex++];
             size_t upperBound = message[bufferIndex++];
             int step = message[bufferIndex++];
+            cout << "\t[SLAVE " << rank << "] additional info received" << endl;
 
             // solve
             SolverSlave slave(instanceInfo, initLowerBound, upperBound, rank);
@@ -92,7 +94,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (rank != 0)
-        cout << "[SLAVE " << rank <<  "] end" << endl;
+        cout << "\t[SLAVE " << rank <<  "] end" << endl;
     MPI_Finalize();
 
     return 0;

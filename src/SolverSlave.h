@@ -3,9 +3,9 @@
 
 #include <algorithm>
 #include <iostream>
-#include "Types.h"
 #include <omp.h>
 #include <mpi.h>
+#include "Types.h"
 #include "BoardState.h"
 
 using namespace std;
@@ -40,7 +40,7 @@ public:
                 buffer.push_back(item.first);
                 buffer.push_back(item.second);
             }
-            MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, 0, 1, MPI_COMM_WORLD);
+            MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, 0, TAG::SOLUTION, MPI_COMM_WORLD);
             cout << "[SLAVE " << rank << "] solution of size " << solution.size() << " sent to the master" << endl;
         }
     }

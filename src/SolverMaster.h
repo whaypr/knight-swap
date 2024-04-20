@@ -3,9 +3,9 @@
 
 #include <algorithm>
 #include <iostream>
-#include "Types.h"
 #include <omp.h>
 #include <mpi.h>
+#include "Types.h"
 #include "BoardState.h"
 
 using namespace std;
@@ -28,32 +28,37 @@ public:
         initLowerBound = boardState.lowerBound;
         upperBound = getInitUpperBound(boardState);
 
+        set<int> slaves;
+        for (int i = 1; i <= nSlaves; ++i)
+            slaves.emplace(i);
+
         // prepare init tasks which will be sent to the slaves to be processed
         queue<pair<BoardState, int>> initStates = getInitStates(boardState, step);
 
         // init work of the slaves by sending them the first task
-        for (int i = 1; i <= nSlaves; ++i) {
+        for (const auto& slave : slaves) {
             auto state = initStates.front();
             initStates.pop();
 
             vector<int> bufferBoardState = boardState.serialize();
-            MPI_Send(bufferBoardState.data(), (int)bufferBoardState.size(), MPI_INT, i, TAG::BOARD_STATE, MPI_COMM_WORLD);
+            MPI_Send(bufferBoardState.data(), (int)bufferBoardState.size(), MPI_INT, slave, TAG::BOARD_STATE, MPI_COMM_WORLD);
 
             vector<int> buffer;
             buffer.push_back(initLowerBound);
             buffer.push_back(upperBound);
             buffer.push_back(step);
-            MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, i, TAG::BOARD_STATE_OTHERS, MPI_COMM_WORLD);
+            MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, slave, TAG::BOARD_STATE_OTHERS, MPI_COMM_WORLD);
         }
 
         cout << "[MASTER] init batch sent" << endl;
 
-        // process the rest of the tasks
         int bufferSize = 200 * 2;
-        while (nSlaves > 0) {
+
+        // process the rest of the tasks
+        while (!slaves.empty()) {
             std::vector<int> message(bufferSize);
             MPI_Status status;
-            MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, TAG::SOLUTION, MPI_COMM_WORLD, &status);
 
             int bufferIndex = 0;
             int size = message[bufferIndex++];
@@ -66,16 +71,23 @@ public:
                     int second = message[bufferIndex++];
                     solution.emplace_back(first, second);
                 }
+
+                upperBound = solution.size();
+                cout << "[MASTER] upper bound updated to " << upperBound << endl;
             }
 
-            // no more work to do
+            // no more work to do - notify the slave who sent the solution
             if (initStates.empty()) {
                 MPI_Request dummy_handle;
                 MPI_Isend(nullptr, 0, MPI_INT, status.MPI_SOURCE, TAG::END, MPI_COMM_WORLD, &dummy_handle);
-                nSlaves--;
+                slaves.erase(status.MPI_SOURCE);
+            // still soe work to do - give the slave who sent the solution another task
             } else {
                 auto state = initStates.front();
                 initStates.pop();
+
+                if (initStates.empty())
+                    cout << "[MASTER] last init state pop" << endl;
 
                 vector<int> bufferBoardState = boardState.serialize();
                 MPI_Send(bufferBoardState.data(), (int)bufferBoardState.size(), MPI_INT, status.MPI_SOURCE, TAG::BOARD_STATE, MPI_COMM_WORLD);
@@ -103,7 +115,6 @@ public:
         }
 
         cout << "Solution length: " << solution.size() << endl;
-        cout << "Found after " << nIterations << " iterations" << endl;
         int moveNum = 0;
 
         // get and print init board state
@@ -144,8 +155,6 @@ private:
      */
     size_t upperBound{};
     vector<pair<position,position>> solution;
-
-    size_t nIterations = 0;
 
     /**
      * A sum of minimal distances to the most distant squares in destination areas of all knights
