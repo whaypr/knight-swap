@@ -32,17 +32,17 @@ public:
             solveInner(boardState, step);
         }
 
-        // if found, send solution to the master
-        if (!solution.empty()) {
-            vector<int> buffer;
-            buffer.push_back(solution.size());
-            for (const auto& item : solution) {
-                buffer.push_back(item.first);
-                buffer.push_back(item.second);
-            }
-            MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, 0, TAG::SOLUTION, MPI_COMM_WORLD);
-            cout << "[SLAVE " << rank << "] solution of size " << solution.size() << " sent to the master" << endl;
+        // send solution to the master - send even the empty solution to let master know this slave wants another task
+        vector<int> buffer;
+        buffer.push_back(solution.size());
+        for (const auto& item : solution) {
+            buffer.push_back(item.first);
+            buffer.push_back(item.second);
         }
+        MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, 0, TAG::SOLUTION, MPI_COMM_WORLD);
+
+        if (!solution.empty())
+            cout << "\t[SLAVE " << rank << "] solution of size " << solution.size() << " sent to the master" << endl;
     }
 
     void solveInner(BoardState & boardState, int step) {
@@ -122,10 +122,7 @@ public:
             /* do the call */
 
             #pragma omp task
-            {
-                solveInner(newBoardState, step + 1);
-                #pragma omp cancel taskgroup if (solution.size() == initLowerBound)
-            }
+            solveInner(newBoardState, step + 1);
         }
     }
 
