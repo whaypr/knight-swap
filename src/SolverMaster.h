@@ -103,7 +103,7 @@ public:
             int size = message[bufferIndex++];
 
             // better solution found
-            if (size != 0 && size < upperBound) {
+            if (size != 0 && size <= upperBound) {
                 solution.clear();
                 for (int i = 0; i < size; ++i) {
                     int first = message[bufferIndex++];
