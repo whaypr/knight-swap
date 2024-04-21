@@ -35,11 +35,12 @@ public:
 
         // send solution to the master - send even the empty solution to let master know this slave wants another task
         vector<int> buffer;
-        buffer.push_back(solution.size());
+        buffer.push_back((int)solution.size());
         for (const auto& item : solution) {
             buffer.push_back(item.first);
             buffer.push_back(item.second);
         }
+        buffer.push_back((int)nIterations);
         MPI_Send(buffer.data(), (int)buffer.size(), MPI_INT, 0, TAG::SOLUTION, MPI_COMM_WORLD);
 
         if (!solution.empty())
@@ -47,6 +48,9 @@ public:
     }
 
     void solveInner(BoardState & boardState, int step) {
+        #pragma omp critical
+        nIterations++;
+
         if (solution.size() == initLowerBound)
             return;
 
@@ -171,6 +175,7 @@ private:
     const int rank;
     vector<pair<position,position>> solution;
 
+    size_t nIterations = 0;
     vector<int> solutionSizeUpdateBuffer;
 
     /**

@@ -113,6 +113,8 @@ public:
 
                 upperBound = solution.size();
                 cout << "[MASTER] upper bound updated to " << upperBound << endl;
+
+                nIterations += message[bufferIndex++];
             }
 
             // no more work to do - notify the slave who sent the solution
@@ -154,6 +156,7 @@ public:
         }
 
         cout << "Solution length: " << solution.size() << endl;
+        cout << "Found after " << nIterations << " iterations" << endl;
         int moveNum = 0;
 
         // get and print init board state
@@ -194,6 +197,8 @@ private:
      */
     size_t upperBound{};
     vector<pair<position,position>> solution;
+
+    size_t nIterations = 0;
 
     /**
      * A sum of minimal distances to the most distant squares in destination areas of all knights
