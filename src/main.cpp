@@ -70,9 +70,21 @@ int main(int argc, char* argv[]) {
         while (true) {
 
             // check whether end or not - if all work is done, the master will send a command to end
-            MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            if (status.MPI_TAG == TAG::END)
-                break;
+            bool endFlag = false;
+            // there might be multiple solution-update messages so iterate over all of them to rid of them
+            while (true) {
+                MPI_Probe(0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                if (status.MPI_TAG == TAG::END) {
+                    endFlag = true;
+                    break;
+                } else if (status.MPI_TAG == TAG::SOLUTION_SIZE_UPDATE) {
+                    vector<int> dummy(1);
+                    MPI_Recv(dummy.data(), 1, MPI_INT, 0, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                } else
+                    break; // no message with the tags above is present - continue
+            }
+
+            if (endFlag) break;
 
             // get a board state to be worked on
             MPI_Recv(message.data(), bufferSize, MPI_INT, 0, TAG::BOARD_STATE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);

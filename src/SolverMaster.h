@@ -5,6 +5,8 @@
 #include <iostream>
 #include <omp.h>
 #include <mpi.h>
+#include<chrono>
+#include<thread>
 #include "Types.h"
 #include "BoardState.h"
 
@@ -52,13 +54,50 @@ public:
 
         cout << "[MASTER] init batch sent" << endl;
 
+        vector<int> solutionSizeUpdateBuffer(1);
         int bufferSize = 200 * 2;
 
         // process the rest of the tasks
         while (!slaves.empty()) {
             std::vector<int> message(bufferSize);
             MPI_Status status;
-            MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, TAG::SOLUTION, MPI_COMM_WORLD, &status);
+            int flag;
+
+            // probe for updates from slaves periodically
+            while (true) {
+                MPI_Iprobe(MPI_ANY_SOURCE, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD, &flag, &status);
+
+                // one of the slaves found a solution
+                if (flag) {
+                    MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD, &status);
+
+                    // solution is better than the best one so far - update and notify other slaves
+                    if (message[0] < upperBound) {
+                        upperBound = message[0];
+                        solutionSizeUpdateBuffer[0] = (int)upperBound;
+                        cout << "[MASTER] upper bound updated to " << upperBound << endl;
+
+                        for (const auto& slave : slaves) {
+                            if (slave == status.MPI_SOURCE)
+                                continue;
+                            MPI_Request dummy_handle;
+                            MPI_Isend(solutionSizeUpdateBuffer.data(), (int)solutionSizeUpdateBuffer.size(), MPI_INT, slave, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD, &dummy_handle);
+                        }
+                    }
+
+                    message.clear();
+                }
+
+                MPI_Iprobe(MPI_ANY_SOURCE, TAG::SOLUTION, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
+
+                // one of the slaves finished his work
+                if (flag) {
+                    MPI_Recv(message.data(), bufferSize, MPI_INT, MPI_ANY_SOURCE, TAG::SOLUTION, MPI_COMM_WORLD, &status);
+                    break;
+                }
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
 
             int bufferIndex = 0;
             int size = message[bufferIndex++];

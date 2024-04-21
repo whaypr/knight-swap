@@ -19,7 +19,8 @@ public:
         instanceInfo(instanceInfo),
         initLowerBound(initLowerBound),
         upperBound(upperBound),
-        rank(rank){
+        rank(rank),
+        solutionSizeUpdateBuffer(1) {
     }
 
     /**
@@ -49,13 +50,45 @@ public:
         if (solution.size() == initLowerBound)
             return;
 
-        // a (possibly not optimal) solution is found
+        // check if there is a better upper bound found by another slave
+        // only one of the threads needs to actually read it - it will then update it for the other threads
+        if (omp_get_thread_num() == 0) {
+
+            // there can be multiple updates - read through all of them
+            int flag = 1;
+            while (flag) {
+                MPI_Iprobe(0, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD, &flag, MPI_STATUS_IGNORE);
+                if (flag) {
+                    int bufferSize = 16;
+                    vector<int> message(bufferSize);
+                    MPI_Recv(message.data(), bufferSize, MPI_INT, 0, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD,
+                             MPI_STATUS_IGNORE);
+
+                    if (message[0] < upperBound) {
+                        #pragma omp critical
+                        upperBound = message[0];
+                    }
+
+                    cout << "\t[SLAVE " << rank << "] upper bound of size " << solution.size() << " received from the master" << endl;
+                }
+            }
+        }
+
+        // a (possibly not optimal but the best so far) solution is found
         if (boardState.whitesLeft + boardState.blacksLeft == 0)  {
             if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
                 #pragma omp critical
                 if (!boardState.solutionCandidate.empty() && boardState.solutionCandidate.size() < upperBound) {
                     solution = boardState.solutionCandidate;
-                    upperBound = boardState.solutionCandidate.size();
+                    upperBound = solution.size();
+
+                    // send information about the size of the new solution to the master
+                    // because the best upper bound known to the master was sent to this slave previously,
+                    // this communication will happen only if this solution is better
+                    solutionSizeUpdateBuffer[0] = (int)upperBound;
+                    MPI_Request dummy_handle;
+                    MPI_Isend(solutionSizeUpdateBuffer.data(), (int)solutionSizeUpdateBuffer.size(), MPI_INT, 0, TAG::SOLUTION_SIZE_UPDATE, MPI_COMM_WORLD, &dummy_handle);
+                    cout << "\t[SLAVE " << rank << "] upper bound of size " << upperBound << " sent to the master" << endl;
                 }
             }
         }
@@ -137,6 +170,8 @@ private:
     size_t upperBound{};
     const int rank;
     vector<pair<position,position>> solution;
+
+    vector<int> solutionSizeUpdateBuffer;
 
     /**
      * Helper structure holding information needed for recursive calls
