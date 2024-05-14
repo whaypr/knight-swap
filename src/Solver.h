@@ -4,6 +4,7 @@
 #include <utility>
 #include <algorithm>
 #include <iostream>
+#include <chrono>
 #include "Types.h"
 #include "BoardState.h"
 
@@ -22,7 +23,11 @@ public:
      * Finds a solution and stores it internally
      */
     void solve(BoardState & boardState, int step) {
+        const auto start = std::chrono::high_resolution_clock::now();
         optimalSolution = solveInner(boardState, step);
+        const auto end = std::chrono::high_resolution_clock::now();
+
+        solvingTime = end - start;
     }
 
     /**
@@ -35,7 +40,7 @@ public:
         }
 
         cout << "Solution length: " << optimalSolution.size() << endl;
-        cout << "Found after " << nIterations << " iterations" << endl;
+        cout << "Found after " << solvingTime.count() << " seconds and " << nIterations << " iterations" << endl;
         int moveNum = 0;
 
         // get and print init board state
@@ -64,6 +69,7 @@ private:
     const InstanceInfo & instanceInfo;
     vector<pair<position,position>> optimalSolution;
     size_t nIterations = 0;
+    std::chrono::duration<double> solvingTime;
 
     vector<pair<position,position>> solveInner(BoardState & boardState, int step) {
         nIterations++;
