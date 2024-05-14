@@ -83,29 +83,29 @@ private:
         // For each position, find the shortest path to the most distant square in the destination area for given color using BFS
         for (const auto& opt : {make_pair(whites, BLACK), make_pair(blacks, WHITE)}) {
             for (const int& pos: opt.first) {
-                int mostDistantDestPathLen;
+                vector<bool> visited(instanceInfo.nKnightsInParty, false);
+                int mostDistantDestPathLen = 0;
+
                 // first: position
                 // second.first: number of steps traveled so far from that pos
-                // second.second: number of destination squares visited
-                queue<pair<position, pair<int, int>>> q;
-                q.emplace(pos, make_pair(0, 0));
+                queue<pair<position, int>> q;
+                q.emplace(pos, 0);
+                visited[pos] = true;
 
-                while (true) {
+                while (!q.empty()) {
                     position current = q.front().first;
-                    int length = q.front().second.first;
-                    int destVisited = q.front().second.second;
+                    int length = q.front().second;
                     q.pop();
 
                     if (instanceInfo.squareType[current] == opt.second) {
-                        destVisited++;
-                    }
-                    if (destVisited == instanceInfo.nKnightsInParty) {
                         mostDistantDestPathLen = length;
-                        break;
                     }
 
                     for (const position &next: instanceInfo.movesForPos.find(current)->second) {
-                        q.emplace(next, make_pair(length + 1, destVisited));
+                        if (!visited[next]) {
+                            visited[next] = true;
+                            q.emplace(next, length + 1);
+                        }
                     }
                 }
 
